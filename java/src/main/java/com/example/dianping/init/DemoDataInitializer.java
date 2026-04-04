@@ -2,8 +2,10 @@ package com.example.dianping.init;
 
 import com.example.dianping.entity.ReviewEntity;
 import com.example.dianping.entity.ShopEntity;
-import com.example.dianping.repository.ReviewRepository;
-import com.example.dianping.repository.ShopRepository;
+import com.example.dianping.entity.ShopTagEntity;
+import com.example.dianping.mapper.ShopTagMapper;
+import com.example.dianping.service.db.ReviewDbService;
+import com.example.dianping.service.db.ShopDbService;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
@@ -15,18 +17,20 @@ import java.util.List;
 @Component
 public class DemoDataInitializer implements ApplicationRunner {
 
-    private final ShopRepository shopRepository;
-    private final ReviewRepository reviewRepository;
+    private final ShopDbService shopDbService;
+    private final ReviewDbService reviewDbService;
+    private final ShopTagMapper shopTagMapper;
 
-    public DemoDataInitializer(ShopRepository shopRepository, ReviewRepository reviewRepository) {
-        this.shopRepository = shopRepository;
-        this.reviewRepository = reviewRepository;
+    public DemoDataInitializer(ShopDbService shopDbService, ReviewDbService reviewDbService, ShopTagMapper shopTagMapper) {
+        this.shopDbService = shopDbService;
+        this.reviewDbService = reviewDbService;
+        this.shopTagMapper = shopTagMapper;
     }
 
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
-        if (shopRepository.count() > 0) {
+        if (shopDbService.count() > 0) {
             return;
         }
 
@@ -69,8 +73,9 @@ public class DemoDataInitializer implements ApplicationRunner {
         shop.setAddress(address);
         shop.setDescription(description);
         shop.setSignatureDish(signatureDish);
-        shop.setTags(tags);
-        return shopRepository.save(shop);
+        shopDbService.save(shop);
+        saveTags(shop.getId(), tags);
+        return shop;
     }
 
     private void saveReview(Long shopId, String nickname, Integer score, String content, LocalDate createdAt) {
@@ -80,6 +85,16 @@ public class DemoDataInitializer implements ApplicationRunner {
         review.setScore(score);
         review.setContent(content);
         review.setCreatedAt(createdAt);
-        reviewRepository.save(review);
+        reviewDbService.save(review);
+    }
+
+    private void saveTags(Long shopId, List<String> tags) {
+        for (int i = 0; i < tags.size(); i++) {
+            ShopTagEntity tagEntity = new ShopTagEntity();
+            tagEntity.setShopId(shopId);
+            tagEntity.setTagName(tags.get(i));
+            tagEntity.setSortOrder(i);
+            shopTagMapper.insertTag(tagEntity);
+        }
     }
 }

@@ -4,15 +4,17 @@ spring:
     driver-class-name: org.h2.Driver
     username: sa
     password:
-  jpa:
-    hibernate:
-      ddl-auto: create-drop
-    open-in-view: false
+  sql:
+    init:
+      mode: always
   cache:
     type: simple
   autoconfigure:
     exclude:
       - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
 
 server:
   port: 0

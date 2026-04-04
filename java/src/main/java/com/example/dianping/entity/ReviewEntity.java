@@ -1,35 +1,28 @@
 package com.example.dianping.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
 
 import java.time.LocalDate;
 
-@Entity
-@Table(name = "reviews")
+@TableName("reviews")
 public class ReviewEntity {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @TableId(type = IdType.AUTO)
     private Long id;
 
-    @Column(name = "shop_id", nullable = false)
+    @TableField("shop_id")
     private Long shopId;
 
-    @Column(nullable = false, length = 50)
     private String nickname;
 
-    @Column(nullable = false)
     private Integer score;
 
-    @Column(nullable = false, length = 1000)
     private String content;
 
-    @Column(name = "created_at", nullable = false)
+    @TableField("created_at")
     private LocalDate createdAt;
 
     public Long getId() {

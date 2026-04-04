@@ -1,11 +1,18 @@
 package com.example.dianping.service;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.dianping.entity.ReviewEntity;
 import com.example.dianping.entity.ShopEntity;
+import com.example.dianping.entity.ShopTagEntity;
+import com.example.dianping.mapper.ShopTagMapper;
+import com.example.dianping.model.PagedResult;
 import com.example.dianping.model.Review;
 import com.example.dianping.model.Shop;
-import com.example.dianping.repository.ReviewRepository;
-import com.example.dianping.repository.ShopRepository;
+import com.example.dianping.service.db.ReviewDbService;
+import com.example.dianping.service.db.ShopDbService;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
@@ -17,38 +24,68 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional(readOnly = true)
 public class DianpingService {
 
-    private final ShopRepository shopRepository;
-    private final ReviewRepository reviewRepository;
+    private final ShopDbService shopDbService;
+    private final ReviewDbService reviewDbService;
+    private final ShopTagMapper shopTagMapper;
 
-    public DianpingService(ShopRepository shopRepository, ReviewRepository reviewRepository) {
-        this.shopRepository = shopRepository;
-        this.reviewRepository = reviewRepository;
+    public DianpingService(ShopDbService shopDbService, ReviewDbService reviewDbService, ShopTagMapper shopTagMapper) {
+        this.shopDbService = shopDbService;
+        this.reviewDbService = reviewDbService;
+        this.shopTagMapper = shopTagMapper;
     }
 
     @Cacheable(value = "shopList", key = "#keyword == null ? '' : #keyword.trim().toLowerCase()")
     public List<Shop> listShops(String keyword) {
         String normalizedKeyword = keyword == null ? "" : keyword.trim();
         List<ShopEntity> entities = normalizedKeyword.isEmpty()
-                ? shopRepository.findAll().stream().sorted(Comparator.comparing(ShopEntity::getId)).toList()
-                : shopRepository.search(normalizedKeyword);
+                ? shopDbService.list(Wrappers.<ShopEntity>lambdaQuery().orderByAsc(ShopEntity::getId))
+                : shopDbService.listByKeyword(normalizedKeyword);
+        attachTags(entities);
         return entities.stream().map(this::toModel).toList();
     }
 
-    @Cacheable(value = "shopDetail", key = "#id")
-    public Optional<Shop> findShop(Long id) {
-        return shopRepository.findById(id).map(this::toModel);
+    @Cacheable(value = "shopPage", key = "(#keyword == null ? '' : #keyword.trim().toLowerCase()) + ':' + #page + ':' + #pageSize")
+    public PagedResult<Shop> pageShops(String keyword, long page, long pageSize) {
+        String normalizedKeyword = keyword == null ? "" : keyword.trim();
+        IPage<ShopEntity> entityPage = normalizedKeyword.isEmpty()
+                ? shopDbService.page(new Page<>(page, pageSize), Wrappers.<ShopEntity>lambdaQuery().orderByAsc(ShopEntity::getId))
+                : shopDbService.pageByKeyword(normalizedKeyword, page, pageSize);
+
+        List<ShopEntity> records = entityPage.getRecords();
+        attachTags(records);
+
+        return new PagedResult<>(
+                page,
+                pageSize,
+                entityPage.getTotal(),
+                entityPage.getPages(),
+                records.stream().map(this::toModel).toList()
+        );
+    }
+
+    @Cacheable(value = "shopDetail", key = "#id", unless = "#result == null")
+    public Shop findShop(Long id) {
+        ShopEntity entity = shopDbService.getById(id);
+        if (entity == null) {
+            return null;
+        }
+        attachTags(List.of(entity));
+        return toModel(entity);
     }
 
     @Cacheable(value = "shopReviews", key = "#shopId")
     public List<Review> listReviewsByShopId(Long shopId) {
-        return reviewRepository.findByShopIdOrderByCreatedAtDescIdDesc(shopId)
+        return reviewDbService.list(Wrappers.<ReviewEntity>lambdaQuery()
+                        .eq(ReviewEntity::getShopId, shopId)
+                        .orderByDesc(ReviewEntity::getCreatedAt, ReviewEntity::getId))
                 .stream()
                 .map(this::toModel)
                 .toList();
@@ -56,10 +93,17 @@ public class DianpingService {
 
     @Cacheable(value = "recommendations", key = "#currentShopId")
     public List<Shop> recommendShops(Long currentShopId) {
-        Shop currentShop = findShop(currentShopId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "店铺不存在"));
+        Shop currentShop = findShop(currentShopId);
+        if (currentShop == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "店铺不存在");
+        }
 
-        return shopRepository.findByIdNot(currentShopId).stream()
+        List<ShopEntity> recommendations = shopDbService.list(Wrappers.<ShopEntity>lambdaQuery()
+                .ne(ShopEntity::getId, currentShopId)
+                .orderByAsc(ShopEntity::getId));
+        attachTags(recommendations);
+
+        return recommendations.stream()
                 .sorted(Comparator.comparing((ShopEntity shop) -> shop.getDistrict().equals(currentShop.getDistrict()))
                         .reversed()
                         .thenComparing(ShopEntity::getRating, Comparator.reverseOrder()))
@@ -71,15 +115,19 @@ public class DianpingService {
     @Transactional
     @Caching(evict = {
             @CacheEvict(value = "shopList", allEntries = true),
+            @CacheEvict(value = "shopPage", allEntries = true),
             @CacheEvict(value = "shopDetail", key = "#shopId"),
             @CacheEvict(value = "shopReviews", key = "#shopId"),
             @CacheEvict(value = "recommendations", allEntries = true)
     })
     public Review addReview(Long shopId, String nickname, Integer score, String content) {
-        ShopEntity shop = shopRepository.findById(shopId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "店铺不存在"));
+        ShopEntity shop = shopDbService.getById(shopId);
+        if (shop == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "店铺不存在");
+        }
 
-        long existingReviewCount = reviewRepository.countByShopId(shopId);
+        long existingReviewCount = reviewDbService.count(new LambdaQueryWrapper<ReviewEntity>()
+                .eq(ReviewEntity::getShopId, shopId));
 
         ReviewEntity entity = new ReviewEntity();
         entity.setShopId(shopId);
@@ -88,14 +136,14 @@ public class DianpingService {
         entity.setContent(content.trim());
         entity.setCreatedAt(LocalDate.now());
 
-        ReviewEntity saved = reviewRepository.save(entity);
+        reviewDbService.save(entity);
 
         double currentRating = shop.getRating() == null ? 0.0 : shop.getRating();
         double newRating = ((currentRating * existingReviewCount) + score) / (existingReviewCount + 1);
         shop.setRating(Math.round(newRating * 10.0) / 10.0);
-        shopRepository.save(shop);
+        shopDbService.updateById(shop);
 
-        return toModel(saved);
+        return toModel(entity);
     }
 
     private Shop toModel(ShopEntity entity) {
@@ -122,5 +170,24 @@ public class DianpingService {
                 entity.getContent(),
                 entity.getCreatedAt()
         );
+    }
+
+    private void attachTags(List<ShopEntity> shops) {
+        if (shops.isEmpty()) {
+            return;
+        }
+
+        List<Long> shopIds = shops.stream()
+                .map(ShopEntity::getId)
+                .toList();
+
+        LinkedHashMap<Long, List<String>> tagsByShopId = shopTagMapper.selectByShopIds(shopIds).stream()
+                .collect(Collectors.groupingBy(
+                        ShopTagEntity::getShopId,
+                        LinkedHashMap::new,
+                        Collectors.mapping(ShopTagEntity::getTagName, Collectors.toList())
+                ));
+
+        shops.forEach(shop -> shop.setTags(new ArrayList<>(tagsByShopId.getOrDefault(shop.getId(), List.of()))));
     }
 }

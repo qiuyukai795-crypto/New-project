@@ -1,56 +1,38 @@
 package com.example.dianping.entity;
 
-import jakarta.persistence.CollectionTable;
-import jakarta.persistence.Column;
-import jakarta.persistence.ElementCollection;
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.OrderColumn;
-import jakarta.persistence.Table;
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
 
 import java.util.ArrayList;
 import java.util.List;
 
-@Entity
-@Table(name = "shops")
+@TableName("shops")
 public class ShopEntity {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @TableId(type = IdType.AUTO)
     private Long id;
 
-    @Column(nullable = false, length = 100)
     private String name;
 
-    @Column(nullable = false, length = 50)
     private String category;
 
-    @Column(nullable = false)
     private Double rating;
 
-    @Column(name = "avg_price", nullable = false)
+    @TableField("avg_price")
     private Integer avgPrice;
 
-    @Column(nullable = false, length = 50)
     private String district;
 
-    @Column(nullable = false, length = 255)
     private String address;
 
-    @Column(nullable = false, length = 500)
     private String description;
 
-    @Column(name = "signature_dish", nullable = false, length = 100)
+    @TableField("signature_dish")
     private String signatureDish;
 
-    @ElementCollection(fetch = FetchType.EAGER)
-    @CollectionTable(name = "shop_tags", joinColumns = @JoinColumn(name = "shop_id"))
-    @OrderColumn(name = "sort_order")
-    @Column(name = "tag_name", nullable = false, length = 50)
+    @TableField(exist = false)
     private List<String> tags = new ArrayList<>();
 
     public Long getId() {

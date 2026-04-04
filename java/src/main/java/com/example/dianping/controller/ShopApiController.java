@@ -1,5 +1,6 @@
 package com.example.dianping.controller;
 
+import com.example.dianping.model.PagedResult;
 import com.example.dianping.model.Review;
 import com.example.dianping.model.Shop;
 import com.example.dianping.service.DianpingService;
@@ -35,23 +36,38 @@ public class ShopApiController {
         return dianpingService.listShops(keyword);
     }
 
+    @GetMapping("/page")
+    public PagedResult<Shop> pageShops(@RequestParam(defaultValue = "") String keyword,
+                                       @RequestParam(defaultValue = "1") long page,
+                                       @RequestParam(defaultValue = "10") long pageSize) {
+        if (page < 1 || pageSize < 1 || pageSize > 50) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "分页参数不合法");
+        }
+        return dianpingService.pageShops(keyword, page, pageSize);
+    }
+
     @GetMapping("/{id}")
     public Shop getShop(@PathVariable Long id) {
-        return dianpingService.findShop(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "店铺不存在"));
+        Shop shop = dianpingService.findShop(id);
+        if (shop == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "店铺不存在");
+        }
+        return shop;
     }
 
     @GetMapping("/{id}/reviews")
     public List<Review> listReviews(@PathVariable Long id) {
-        dianpingService.findShop(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "店铺不存在"));
+        if (dianpingService.findShop(id) == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "店铺不存在");
+        }
         return dianpingService.listReviewsByShopId(id);
     }
 
     @GetMapping("/{id}/recommendations")
     public List<Shop> listRecommendations(@PathVariable Long id) {
-        dianpingService.findShop(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "店铺不存在"));
+        if (dianpingService.findShop(id) == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "店铺不存在");
+        }
         return dianpingService.recommendShops(id);
     }
 
