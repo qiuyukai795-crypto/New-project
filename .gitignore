@@ -1,0 +1,7 @@
+.idea/
+.DS_Store
+.tools/
+*.iml
+/java/target/
+/web/node_modules/
+/web/dist/
