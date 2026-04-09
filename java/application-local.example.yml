@@ -1,0 +1,17 @@
+spring:
+  security:
+    oauth2:
+      client:
+        registration:
+          github:
+            client-id: your-github-client-id
+            client-secret: your-github-client-secret
+            scope:
+              - read:user
+              - user:email
+
+app:
+  security:
+    jwt:
+      secret: replace-with-your-own-local-jwt-secret-at-least-32-characters
+      expires-in: 2h

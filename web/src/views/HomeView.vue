@@ -5,8 +5,19 @@
       <h1>做一个前后端分离版的大众点评首页</h1>
       <p>
         前端使用 Vue 3 + Vite，后端使用 Spring Boot API。
-        你可以搜索商户、浏览详情，并通过独立的前端页面提交评价。
+        你可以搜索商户、浏览详情；发点评前，需要先通过 OAuth2 登录。
       </p>
+
+      <div class="auth-banner" v-if="authState.user">
+        <span class="badge">已登录</span>
+        <strong>{{ authState.user.displayName }}</strong>
+        <span class="muted">现在可以在店铺详情页直接发布点评了。</span>
+      </div>
+
+      <div class="auth-banner" v-else-if="authState.providers.length">
+        <span class="badge">需要登录</span>
+        <span class="muted">浏览保持公开，发点评前请先登录。</span>
+      </div>
 
       <div class="stats">
         <article class="stat-card">
@@ -58,6 +69,7 @@
 <script setup>
 import { computed, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import { authState } from "../auth";
 import ShopCard from "../components/ShopCard.vue";
 import { fetchShops } from "../api";
 

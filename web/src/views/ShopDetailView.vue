@@ -81,10 +81,43 @@
 
         <aside class="panel">
           <h2>写点评</h2>
-          <p>提交后会写入 Spring Boot 的内存数据，适合做 demo 联调。</p>
+          <p>现在点评会写入数据库；发点评前，需要先用 OAuth2 登录。</p>
 
-          <form class="review-form" @submit.prevent="submitReview">
-            <input v-model.trim="form.nickname" type="text" placeholder="你的昵称" required />
+          <div v-if="authState.user" class="signed-in-card">
+            <span class="badge">已登录账号</span>
+            <strong>{{ authState.user.displayName }}</strong>
+            <p class="meta">{{ authState.user.email || authState.user.username }}</p>
+          </div>
+
+          <div v-else-if="authState.providers.length" class="login-panel">
+            <p>你还没有登录，先登录再发布这家店的评价。</p>
+            <div class="provider-actions">
+              <button
+                v-for="provider in authState.providers"
+                :key="provider.registrationId"
+                class="button"
+                type="button"
+                @click="login(provider)"
+              >
+                {{ provider.clientName }} 登录
+              </button>
+            </div>
+          </div>
+
+          <div v-else class="login-panel">
+            <p>暂时还没有拿到可用的登录方式。</p>
+            <button
+              class="button secondary"
+              type="button"
+              :disabled="providerRefreshing"
+              @click="reloadProviders"
+            >
+              {{ providerRefreshing ? "重新获取中..." : "重新获取登录方式" }}
+            </button>
+            <p class="meta">如果你刚重启后端，点一次这里或者刷新页面。</p>
+          </div>
+
+          <form class="review-form" @submit.prevent="submitReview" v-if="authState.user">
 
             <select v-model.number="form.score" required>
               <option :value="0">请选择评分</option>
@@ -112,8 +145,9 @@
 </template>
 
 <script setup>
-import { reactive, ref, watch } from "vue";
-import { RouterLink } from "vue-router";
+import { onMounted, reactive, ref, watch } from "vue";
+import { RouterLink, useRoute } from "vue-router";
+import { authState, refreshAuthProviders, startOAuthLogin } from "../auth";
 import { createReview, fetchRecommendations, fetchReviews, fetchShop } from "../api";
 
 const props = defineProps({
@@ -122,6 +156,7 @@ const props = defineProps({
     required: true
   }
 });
+const route = useRoute();
 
 const shop = ref(null);
 const reviews = ref([]);
@@ -131,9 +166,9 @@ const errorMessage = ref("");
 const submitError = ref("");
 const submitSuccess = ref("");
 const submitting = ref(false);
+const providerRefreshing = ref(false);
 
 const form = reactive({
-  nickname: "",
   score: 0,
   content: ""
 });
@@ -165,7 +200,12 @@ async function submitReview() {
   submitError.value = "";
   submitSuccess.value = "";
 
-  if (!form.nickname || !form.content || !form.score) {
+  if (!authState.user) {
+    submitError.value = "请先登录后再发布点评。";
+    return;
+  }
+
+  if (!form.content || !form.score) {
     submitError.value = "请填写完整的评价信息。";
     return;
   }
@@ -176,7 +216,6 @@ async function submitReview() {
     await createReview(props.id, form);
     reviews.value = await fetchReviews(props.id);
     submitSuccess.value = "评价发布成功，已经展示在列表顶部。";
-    form.nickname = "";
     form.score = 0;
     form.content = "";
   } catch (error) {
@@ -185,6 +224,25 @@ async function submitReview() {
     submitting.value = false;
   }
 }
+
+function login(provider) {
+  startOAuthLogin(provider, route.fullPath);
+}
+
+async function reloadProviders() {
+  providerRefreshing.value = true;
+  try {
+    await refreshAuthProviders();
+  } finally {
+    providerRefreshing.value = false;
+  }
+}
+
+onMounted(() => {
+  if (!authState.user && !authState.providers.length) {
+    reloadProviders();
+  }
+});
 
 watch(
   () => props.id,

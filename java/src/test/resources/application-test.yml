@@ -12,9 +12,22 @@ spring:
   autoconfigure:
     exclude:
       - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+  security:
+    oauth2:
+      client:
+        registration:
+          github:
+            client-id: test-client-id
+            client-secret: test-client-secret
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
+app:
+  security:
+    frontend-base-url: http://localhost:5173
+    jwt:
+      secret: test-secret-key-test-secret-key-123456
+      expires-in: 2h
 
 server:
   port: 0

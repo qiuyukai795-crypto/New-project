@@ -10,6 +10,23 @@
       </RouterLink>
       <nav class="topnav">
         <RouterLink to="/">首页</RouterLink>
+        <template v-if="authState.user">
+          <span class="user-pill">{{ authState.user.displayName }}</span>
+          <button class="button secondary topbar-button" type="button" @click="logout">
+            退出登录
+          </button>
+        </template>
+        <template v-else-if="authState.providers.length">
+          <button
+            v-for="provider in authState.providers"
+            :key="provider.registrationId"
+            class="button secondary topbar-button"
+            type="button"
+            @click="login(provider)"
+          >
+            {{ provider.clientName }} 登录
+          </button>
+        </template>
       </nav>
     </header>
 
@@ -18,5 +35,21 @@
 </template>
 
 <script setup>
-import { RouterLink, RouterView } from "vue-router";
+import { onMounted } from "vue";
+import { RouterLink, RouterView, useRoute } from "vue-router";
+import { authState, bootstrapAuth, clearAuthSession, startOAuthLogin } from "./auth";
+
+const route = useRoute();
+
+onMounted(() => {
+  bootstrapAuth().catch(() => {});
+});
+
+function login(provider) {
+  startOAuthLogin(provider, route.fullPath);
+}
+
+function logout() {
+  clearAuthSession();
+}
 </script>

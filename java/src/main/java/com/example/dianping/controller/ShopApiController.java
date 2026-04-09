@@ -3,12 +3,15 @@ package com.example.dianping.controller;
 import com.example.dianping.model.PagedResult;
 import com.example.dianping.model.Review;
 import com.example.dianping.model.Shop;
+import com.example.dianping.service.AuthService;
 import com.example.dianping.service.DianpingService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -26,9 +29,11 @@ import java.util.List;
 public class ShopApiController {
 
     private final DianpingService dianpingService;
+    private final AuthService authService;
 
-    public ShopApiController(DianpingService dianpingService) {
+    public ShopApiController(DianpingService dianpingService, AuthService authService) {
         this.dianpingService = dianpingService;
+        this.authService = authService;
     }
 
     @GetMapping
@@ -73,28 +78,20 @@ public class ShopApiController {
 
     @PostMapping("/{id}/reviews")
     @ResponseStatus(HttpStatus.CREATED)
-    public Review createReview(@PathVariable Long id, @Valid @RequestBody CreateReviewRequest request) {
-        return dianpingService.addReview(id, request.getNickname(), request.getScore(), request.getContent());
+    public Review createReview(@PathVariable Long id,
+                               @AuthenticationPrincipal Jwt jwt,
+                               @Valid @RequestBody CreateReviewRequest request) {
+        String nickname = authService.getCurrentUser(jwt).displayName();
+        return dianpingService.addReview(id, nickname, request.getScore(), request.getContent());
     }
 
     public static class CreateReviewRequest {
-        @NotBlank(message = "nickname 不能为空")
-        private String nickname;
-
         @Min(value = 1, message = "score 不能小于 1")
         @Max(value = 5, message = "score 不能大于 5")
         private Integer score;
 
         @NotBlank(message = "content 不能为空")
         private String content;
-
-        public String getNickname() {
-            return nickname;
-        }
-
-        public void setNickname(String nickname) {
-            this.nickname = nickname;
-        }
 
         public Integer getScore() {
             return score;

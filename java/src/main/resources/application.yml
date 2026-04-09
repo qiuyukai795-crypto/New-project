@@ -1,4 +1,8 @@
 spring:
+  config:
+    import:
+      - optional:file:./application-local.yml
+      - optional:file:./java/application-local.yml
   application:
     name: dianping-java-api
   datasource:
@@ -21,6 +25,12 @@ spring:
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
+app:
+  security:
+    frontend-base-url: ${FRONTEND_BASE_URL:http://localhost:5173}
+    jwt:
+      secret: ${APP_JWT_SECRET:change-this-demo-secret-change-this-demo-secret-2026}
+      expires-in: ${APP_JWT_EXPIRES_IN:2h}
 
 server:
   port: 8080

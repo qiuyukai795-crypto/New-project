@@ -1,3 +1,19 @@
+CREATE TABLE IF NOT EXISTS user_accounts (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    provider VARCHAR(50) NOT NULL,
+    provider_user_id VARCHAR(100) NOT NULL,
+    username VARCHAR(100) NOT NULL,
+    display_name VARCHAR(100) NOT NULL,
+    email VARCHAR(150),
+    avatar_url VARCHAR(255),
+    role VARCHAR(20) NOT NULL,
+    created_at DATETIME NOT NULL,
+    updated_at DATETIME NOT NULL,
+    last_login_at DATETIME NOT NULL,
+    PRIMARY KEY (id),
+    CONSTRAINT uk_user_accounts_provider_user UNIQUE (provider, provider_user_id)
+);
+
 CREATE TABLE IF NOT EXISTS shops (
     id BIGINT NOT NULL AUTO_INCREMENT,
     name VARCHAR(100) NOT NULL,

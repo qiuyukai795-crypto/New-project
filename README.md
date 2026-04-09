@@ -1,7 +1,7 @@
 # 大众点评 Demo Monorepo
 
 这是一个前后端分离的简化版大众点评 demo。
-后端现在已经升级为 MySQL 8 + Redis 架构：
+后端现在已经升级为 MySQL 8 + Redis 架构，并接入了 GitHub OAuth2 登录：
 
 - MySQL 8 负责持久化店铺和点评数据
 - Redis 负责缓存店铺列表、店铺详情、点评和推荐结果
@@ -13,7 +13,7 @@
 
 ## 技术栈
 
-- 后端: Java 17、Spring Boot 3、Spring Data JPA、MySQL 8、Redis、Maven
+- 后端: Java 17、Spring Boot 3、Spring Security、OAuth2、MyBatis-Plus、MySQL 8、Redis、Maven
 - 前端: Vue 3、Vue Router、Vite
 
 ## 本机服务信息
@@ -63,6 +63,10 @@ mvn spring-boot:run
 
 - API: `http://localhost:8080/api/shops`
 
+本地 OAuth2 私密配置放在 [java/application-local.yml](/Users/qiu/Documents/New%20project/java/application-local.yml)，这个文件已经被 `.gitignore` 忽略，不会跟着仓库提交。
+如果你以后更换 GitHub `client-id`、`client-secret` 或 JWT 密钥，只改这个文件即可。
+提交到仓库的模板文件是 [java/application-local.example.yml](/Users/qiu/Documents/New%20project/java/application-local.example.yml)。
+
 ### 2. 启动前端
 
 进入 [web](/Users/qiu/Documents/New%20project/web) 目录执行：
@@ -92,11 +96,12 @@ npm run dev
 - `GET /api/shops/{id}/recommendations`
 - `POST /api/shops/{id}/reviews`
 
+其中 `POST /api/shops/{id}/reviews` 需要先登录。
+
 请求体示例：
 
 ```json
 {
-  "nickname": "小王",
   "score": 5,
   "content": "环境很好，菜品也很稳定。"
 }

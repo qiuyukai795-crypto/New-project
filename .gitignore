@@ -2,6 +2,8 @@
 .DS_Store
 .tools/
 *.iml
+/application-local.yml
+/java/application-local.yml
 /java/target/
 /web/node_modules/
 /web/dist/
