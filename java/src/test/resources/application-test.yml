@@ -25,6 +25,11 @@ mybatis-plus:
 app:
   security:
     frontend-base-url: http://localhost:5173
+    providers:
+      github:
+        enabled: true
+      local:
+        enabled: true
     jwt:
       secret: test-secret-key-test-secret-key-123456
       expires-in: 2h

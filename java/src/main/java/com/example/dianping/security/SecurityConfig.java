@@ -24,6 +24,8 @@ import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 
 import java.util.Collection;
@@ -37,6 +39,7 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
                                                    ObjectProvider<ClientRegistrationRepository> clientRegistrationRepositoryProvider,
+                                                   AppSecurityProperties securityProperties,
                                                    OAuth2LoginSuccessHandler successHandler,
                                                    OAuth2LoginFailureHandler failureHandler) throws Exception {
         http.csrf(AbstractHttpConfigurer::disable)
@@ -48,6 +51,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/shops/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/auth/providers").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/register").permitAll()
                         .requestMatchers("/oauth2/**", "/login/oauth2/**", "/error").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/shops/*/reviews").authenticated()
                         .requestMatchers("/api/auth/me").authenticated()
@@ -55,7 +59,8 @@ public class SecurityConfig {
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(this::convertJwt)));
 
-        if (clientRegistrationRepositoryProvider.getIfAvailable() != null) {
+        if (securityProperties.getProviders().getGithub().isEnabled()
+                && clientRegistrationRepositoryProvider.getIfAvailable() != null) {
             http.oauth2Login(oauth2 -> oauth2
                     .successHandler(successHandler)
                     .failureHandler(failureHandler)
@@ -84,6 +89,11 @@ public class SecurityConfig {
         return NimbusJwtDecoder.withSecretKey(secretKey)
                 .macAlgorithm(MacAlgorithm.HS256)
                 .build();
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
     }
 
     private AbstractAuthenticationToken convertJwt(Jwt jwt) {

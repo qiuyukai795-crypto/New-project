@@ -9,6 +9,7 @@ public class AppSecurityProperties {
 
     private String frontendBaseUrl = "http://localhost:5173";
     private final Jwt jwt = new Jwt();
+    private final Providers providers = new Providers();
 
     public String getFrontendBaseUrl() {
         return frontendBaseUrl;
@@ -20,6 +21,47 @@ public class AppSecurityProperties {
 
     public Jwt getJwt() {
         return jwt;
+    }
+
+    public Providers getProviders() {
+        return providers;
+    }
+
+    public static class Providers {
+        private final Github github = new Github();
+        private final Local local = new Local();
+
+        public Github getGithub() {
+            return github;
+        }
+
+        public Local getLocal() {
+            return local;
+        }
+    }
+
+    public static class Github {
+        private boolean enabled;
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+    }
+
+    public static class Local {
+        private boolean enabled;
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
     }
 
     public static class Jwt {

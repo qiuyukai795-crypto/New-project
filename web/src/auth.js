@@ -87,6 +87,14 @@ export function setAccessToken(token) {
   localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, token);
 }
 
+export function rememberLoginRedirectPath(redirectPath = "/") {
+  sessionStorage.setItem(LOGIN_REDIRECT_STORAGE_KEY, redirectPath);
+}
+
+export function peekLoginRedirectPath() {
+  return sessionStorage.getItem(LOGIN_REDIRECT_STORAGE_KEY) || "/";
+}
+
 export function clearAuthSession() {
   authState.token = null;
   authState.user = null;
@@ -94,8 +102,12 @@ export function clearAuthSession() {
 }
 
 export function startOAuthLogin(provider, redirectPath = "/") {
-  sessionStorage.setItem(LOGIN_REDIRECT_STORAGE_KEY, redirectPath);
+  rememberLoginRedirectPath(redirectPath);
   window.location.assign(provider.authorizationUrl);
+}
+
+export function isPasswordProvider(provider) {
+  return provider?.providerType === "password";
 }
 
 export function consumeLoginRedirectPath() {

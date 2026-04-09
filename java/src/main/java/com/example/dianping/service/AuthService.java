@@ -6,19 +6,24 @@ import com.example.dianping.model.AuthProvider;
 import com.example.dianping.model.AuthToken;
 import com.example.dianping.model.AuthUser;
 import com.example.dianping.security.JwtTokenService;
+import com.example.dianping.security.AppSecurityProperties;
 import com.example.dianping.service.db.UserAccountDbService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.StreamSupport;
@@ -26,15 +31,23 @@ import java.util.stream.StreamSupport;
 @Service
 public class AuthService {
 
+    private static final String LOCAL_PROVIDER = "local";
+
     private final UserAccountDbService userAccountDbService;
     private final JwtTokenService jwtTokenService;
+    private final AppSecurityProperties securityProperties;
+    private final PasswordEncoder passwordEncoder;
     private final ClientRegistrationRepository clientRegistrationRepository;
 
     public AuthService(UserAccountDbService userAccountDbService,
                        JwtTokenService jwtTokenService,
+                       AppSecurityProperties securityProperties,
+                       PasswordEncoder passwordEncoder,
                        ObjectProvider<ClientRegistrationRepository> clientRegistrationRepositoryProvider) {
         this.userAccountDbService = userAccountDbService;
         this.jwtTokenService = jwtTokenService;
+        this.securityProperties = securityProperties;
+        this.passwordEncoder = passwordEncoder;
         this.clientRegistrationRepository = clientRegistrationRepositoryProvider.getIfAvailable();
     }
 
@@ -83,12 +96,14 @@ public class AuthService {
     }
 
     public List<AuthProvider> listProviders(HttpServletRequest request) {
-        if (clientRegistrationRepository == null) {
-            return List.of();
+        List<AuthProvider> providers = new ArrayList<>();
+
+        if (securityProperties.getProviders().getLocal().isEnabled()) {
+            providers.add(new AuthProvider("local", "账号密码", "password", null));
         }
 
-        if (!(clientRegistrationRepository instanceof Iterable<?> iterable)) {
-            return List.of();
+        if (!securityProperties.getProviders().getGithub().isEnabled() || clientRegistrationRepository == null) {
+            return providers;
         }
 
         String baseUrl = ServletUriComponentsBuilder.fromRequestUri(request)
@@ -97,15 +112,70 @@ public class AuthService {
                 .build()
                 .toUriString();
 
-        return StreamSupport.stream(iterable.spliterator(), false)
-                .filter(ClientRegistration.class::isInstance)
-                .map(ClientRegistration.class::cast)
-                .map(registration -> new AuthProvider(
-                        registration.getRegistrationId(),
-                        registration.getClientName(),
-                        baseUrl + "/oauth2/authorization/" + registration.getRegistrationId()
-                ))
-                .toList();
+        if (clientRegistrationRepository instanceof Iterable<?> iterable) {
+            StreamSupport.stream(iterable.spliterator(), false)
+                    .filter(ClientRegistration.class::isInstance)
+                    .map(ClientRegistration.class::cast)
+                    .map(registration -> new AuthProvider(
+                            registration.getRegistrationId(),
+                            registration.getClientName(),
+                            "oauth2",
+                            baseUrl + "/oauth2/authorization/" + registration.getRegistrationId()
+                    ))
+                    .forEach(providers::add);
+        }
+
+        return providers;
+    }
+
+    @Transactional
+    public AuthToken registerLocalAccount(String username, String password, String displayName, String email) {
+        ensureLocalPasswordEnabled();
+
+        String normalizedUsername = normalizeUsername(username);
+        if (findLocalUser(normalizedUsername) != null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "这个用户名已经被占用了");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        UserAccountEntity user = new UserAccountEntity();
+        user.setProvider(LOCAL_PROVIDER);
+        user.setProviderUserId(normalizedUsername);
+        user.setUsername(normalizedUsername);
+        user.setDisplayName(firstNonBlankValues(displayName, normalizedUsername));
+        user.setEmail(firstNonBlankValue(email));
+        user.setPasswordHash(passwordEncoder.encode(password));
+        user.setRole("ROLE_USER");
+        user.setCreatedAt(now);
+        user.setUpdatedAt(now);
+        user.setLastLoginAt(now);
+
+        userAccountDbService.save(user);
+        if (user.getId() == null) {
+            user = findLocalUser(normalizedUsername);
+        }
+
+        if (user == null || user.getId() == null) {
+            throw new IllegalStateException("本地账号注册成功后未能读取到用户主键");
+        }
+
+        return jwtTokenService.issueToken(user);
+    }
+
+    @Transactional
+    public AuthToken loginWithLocalPassword(String username, String password) {
+        ensureLocalPasswordEnabled();
+
+        String normalizedUsername = normalizeUsername(username);
+        UserAccountEntity user = findLocalUser(normalizedUsername);
+        if (user == null || user.getPasswordHash() == null || !passwordEncoder.matches(password, user.getPasswordHash())) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "用户名或密码错误");
+        }
+
+        user.setLastLoginAt(LocalDateTime.now());
+        user.setUpdatedAt(LocalDateTime.now());
+        userAccountDbService.updateById(user);
+        return jwtTokenService.issueToken(user);
     }
 
     public AuthUser getCurrentUser(Jwt jwt) {
@@ -139,6 +209,26 @@ public class AuthService {
                 entity.getProvider(),
                 entity.getRole()
         );
+    }
+
+    private UserAccountEntity findLocalUser(String username) {
+        return userAccountDbService.getOne(Wrappers.<UserAccountEntity>lambdaQuery()
+                .eq(UserAccountEntity::getProvider, LOCAL_PROVIDER)
+                .eq(UserAccountEntity::getProviderUserId, username));
+    }
+
+    private void ensureLocalPasswordEnabled() {
+        if (!securityProperties.getProviders().getLocal().isEnabled()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "当前环境未开启账号密码登录");
+        }
+    }
+
+    private String normalizeUsername(String username) {
+        String normalized = firstNonBlankValue(username);
+        if (normalized == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "用户名不能为空");
+        }
+        return normalized.trim().toLowerCase();
     }
 
     private String extractProviderUserId(OAuth2User oauth2User) {

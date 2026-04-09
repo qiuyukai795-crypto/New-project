@@ -81,7 +81,7 @@
 
         <aside class="panel">
           <h2>写点评</h2>
-          <p>现在点评会写入数据库；发点评前，需要先用 OAuth2 登录。</p>
+          <p>现在点评会写入数据库；发点评前，需要先登录。</p>
 
           <div v-if="authState.user" class="signed-in-card">
             <span class="badge">已登录账号</span>
@@ -146,8 +146,14 @@
 
 <script setup>
 import { onMounted, reactive, ref, watch } from "vue";
-import { RouterLink, useRoute } from "vue-router";
-import { authState, refreshAuthProviders, startOAuthLogin } from "../auth";
+import { RouterLink, useRoute, useRouter } from "vue-router";
+import {
+  authState,
+  isPasswordProvider,
+  refreshAuthProviders,
+  rememberLoginRedirectPath,
+  startOAuthLogin
+} from "../auth";
 import { createReview, fetchRecommendations, fetchReviews, fetchShop } from "../api";
 
 const props = defineProps({
@@ -157,6 +163,7 @@ const props = defineProps({
   }
 });
 const route = useRoute();
+const router = useRouter();
 
 const shop = ref(null);
 const reviews = ref([]);
@@ -226,6 +233,12 @@ async function submitReview() {
 }
 
 function login(provider) {
+  if (isPasswordProvider(provider)) {
+    rememberLoginRedirectPath(route.fullPath);
+    router.push("/login");
+    return;
+  }
+
   startOAuthLogin(provider, route.fullPath);
 }
 

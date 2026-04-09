@@ -12,6 +12,11 @@ spring:
 
 app:
   security:
+    providers:
+      github:
+        enabled: true
+      local:
+        enabled: true
     jwt:
       secret: replace-with-your-own-local-jwt-secret-at-least-32-characters
       expires-in: 2h

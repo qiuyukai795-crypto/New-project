@@ -63,3 +63,17 @@ export function fetchAuthProviders() {
 export function fetchCurrentUser() {
   return request("/auth/me");
 }
+
+export function loginWithPassword(payload) {
+  return request("/auth/login", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export function registerWithPassword(payload) {
+  return request("/auth/register", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}

@@ -36,16 +36,30 @@
 
 <script setup>
 import { onMounted } from "vue";
-import { RouterLink, RouterView, useRoute } from "vue-router";
-import { authState, bootstrapAuth, clearAuthSession, startOAuthLogin } from "./auth";
+import { RouterLink, RouterView, useRoute, useRouter } from "vue-router";
+import {
+  authState,
+  bootstrapAuth,
+  clearAuthSession,
+  isPasswordProvider,
+  rememberLoginRedirectPath,
+  startOAuthLogin
+} from "./auth";
 
 const route = useRoute();
+const router = useRouter();
 
 onMounted(() => {
   bootstrapAuth().catch(() => {});
 });
 
 function login(provider) {
+  if (isPasswordProvider(provider)) {
+    rememberLoginRedirectPath(route.fullPath);
+    router.push("/login");
+    return;
+  }
+
   startOAuthLogin(provider, route.fullPath);
 }
 

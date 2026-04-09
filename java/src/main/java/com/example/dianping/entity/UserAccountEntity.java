@@ -28,6 +28,9 @@ public class UserAccountEntity {
     @TableField("avatar_url")
     private String avatarUrl;
 
+    @TableField("password_hash")
+    private String passwordHash;
+
     private String role;
 
     @TableField("created_at")
@@ -101,6 +104,14 @@ public class UserAccountEntity {
 
     public void setRole(String role) {
         this.role = role;
+    }
+
+    public String getPasswordHash() {
+        return passwordHash;
+    }
+
+    public void setPasswordHash(String passwordHash) {
+        this.passwordHash = passwordHash;
     }
 
     public LocalDateTime getCreatedAt() {

@@ -28,6 +28,11 @@ mybatis-plus:
 app:
   security:
     frontend-base-url: ${FRONTEND_BASE_URL:http://localhost:5173}
+    providers:
+      github:
+        enabled: ${APP_AUTH_GITHUB_ENABLED:false}
+      local:
+        enabled: ${APP_AUTH_LOCAL_ENABLED:false}
     jwt:
       secret: ${APP_JWT_SECRET:change-this-demo-secret-change-this-demo-secret-2026}
       expires-in: ${APP_JWT_EXPIRES_IN:2h}

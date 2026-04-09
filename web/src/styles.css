@@ -180,12 +180,36 @@ textarea {
 .auth-banner,
 .signed-in-card,
 .login-panel,
-.auth-callback-card {
+.auth-callback-card,
+.login-page-card {
   margin-top: 20px;
   padding: 18px 20px;
   border-radius: 18px;
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.78);
+}
+
+.auth-switch {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+
+.switch-button {
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 10px 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.switch-button.active {
+  background: linear-gradient(135deg, var(--brand), var(--brand-deep));
+  color: #fff;
+  border-color: transparent;
 }
 
 .provider-actions {

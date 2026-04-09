@@ -1,35 +1,56 @@
 package com.example.dianping.init;
 
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.example.dianping.entity.ReviewEntity;
 import com.example.dianping.entity.ShopEntity;
 import com.example.dianping.entity.ShopTagEntity;
+import com.example.dianping.entity.UserAccountEntity;
 import com.example.dianping.mapper.ShopTagMapper;
+import com.example.dianping.security.AppSecurityProperties;
 import com.example.dianping.service.db.ReviewDbService;
 import com.example.dianping.service.db.ShopDbService;
+import com.example.dianping.service.db.UserAccountDbService;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Component
 public class DemoDataInitializer implements ApplicationRunner {
 
+    private static final String DEMO_USERNAME = "demo";
+
     private final ShopDbService shopDbService;
     private final ReviewDbService reviewDbService;
     private final ShopTagMapper shopTagMapper;
+    private final UserAccountDbService userAccountDbService;
+    private final PasswordEncoder passwordEncoder;
+    private final AppSecurityProperties securityProperties;
 
-    public DemoDataInitializer(ShopDbService shopDbService, ReviewDbService reviewDbService, ShopTagMapper shopTagMapper) {
+    public DemoDataInitializer(ShopDbService shopDbService,
+                               ReviewDbService reviewDbService,
+                               ShopTagMapper shopTagMapper,
+                               UserAccountDbService userAccountDbService,
+                               PasswordEncoder passwordEncoder,
+                               AppSecurityProperties securityProperties) {
         this.shopDbService = shopDbService;
         this.reviewDbService = reviewDbService;
         this.shopTagMapper = shopTagMapper;
+        this.userAccountDbService = userAccountDbService;
+        this.passwordEncoder = passwordEncoder;
+        this.securityProperties = securityProperties;
     }
 
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
+        seedLocalDemoUser();
+
         if (shopDbService.count() > 0) {
             return;
         }
@@ -53,6 +74,33 @@ public class DemoDataInitializer implements ApplicationRunner {
         saveReview(shop2.getId(), "Momo", 4, "服务态度很好，就是高峰期稍微有点吵。", LocalDate.now().minusDays(5));
         saveReview(shop3.getId(), "Jason", 4, "中午来吃很方便，拌面很香。", LocalDate.now().minusDays(4));
         saveReview(shop4.getId(), "Kiki", 5, "巴斯克口感很细腻，咖啡也在线。", LocalDate.now().minusDays(3));
+    }
+
+    private void seedLocalDemoUser() {
+        if (!securityProperties.getProviders().getLocal().isEnabled()) {
+            return;
+        }
+
+        UserAccountEntity existingUser = userAccountDbService.getOne(Wrappers.<UserAccountEntity>lambdaQuery()
+                .eq(UserAccountEntity::getProvider, "local")
+                .eq(UserAccountEntity::getProviderUserId, DEMO_USERNAME));
+        if (existingUser != null) {
+            return;
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        UserAccountEntity demoUser = new UserAccountEntity();
+        demoUser.setProvider("local");
+        demoUser.setProviderUserId(DEMO_USERNAME);
+        demoUser.setUsername(DEMO_USERNAME);
+        demoUser.setDisplayName("本地演示账号");
+        demoUser.setEmail("demo@local.test");
+        demoUser.setPasswordHash(passwordEncoder.encode("123456"));
+        demoUser.setRole("ROLE_USER");
+        demoUser.setCreatedAt(now);
+        demoUser.setUpdatedAt(now);
+        demoUser.setLastLoginAt(now);
+        userAccountDbService.save(demoUser);
     }
 
     private ShopEntity saveShop(String name,

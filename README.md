@@ -1,10 +1,12 @@
 # 大众点评 Demo Monorepo
 
 这是一个前后端分离的简化版大众点评 demo。
-后端现在已经升级为 MySQL 8 + Redis 架构，并接入了 GitHub OAuth2 登录：
+后端现在已经升级为 MySQL 8 + Redis 架构，并支持两种登录方式：
 
 - MySQL 8 负责持久化店铺和点评数据
 - Redis 负责缓存店铺列表、店铺详情、点评和推荐结果
+- 本地开发可使用账号密码登录
+- 生产环境可切到 GitHub OAuth2 登录
 
 ## 目录结构
 
@@ -13,7 +15,7 @@
 
 ## 技术栈
 
-- 后端: Java 17、Spring Boot 3、Spring Security、OAuth2、MyBatis-Plus、MySQL 8、Redis、Maven
+- 后端: Java 17、Spring Boot 3、Spring Security、OAuth2、JWT、MyBatis-Plus、MySQL 8、Redis、Maven
 - 前端: Vue 3、Vue Router、Vite
 
 ## 本机服务信息
@@ -64,8 +66,75 @@ mvn spring-boot:run
 - API: `http://localhost:8080/api/shops`
 
 本地 OAuth2 私密配置放在 [java/application-local.yml](/Users/qiu/Documents/New%20project/java/application-local.yml)，这个文件已经被 `.gitignore` 忽略，不会跟着仓库提交。
-如果你以后更换 GitHub `client-id`、`client-secret` 或 JWT 密钥，只改这个文件即可。
+如果你以后更换 GitHub `client-id`、`client-secret`、JWT 密钥，或者切换登录方式，只改这个文件即可。
 提交到仓库的模板文件是 [java/application-local.example.yml](/Users/qiu/Documents/New%20project/java/application-local.example.yml)。
+
+### 登录方式切换
+
+后端通过这两个开关控制当前启用哪些登录方式：
+
+```yml
+app:
+  security:
+    providers:
+      github:
+        enabled: true
+      local:
+        enabled: true
+```
+
+推荐用法：
+
+- 本地开发：
+  - `local.enabled: true`
+  - `github.enabled: false` 或 `true`
+- 生产环境：
+  - `local.enabled: false`
+  - `github.enabled: true`
+
+如果你要在生产环境只开放 GitHub 登录，直接通过环境变量设置：
+
+```bash
+APP_AUTH_LOCAL_ENABLED=false
+APP_AUTH_GITHUB_ENABLED=true
+```
+
+如果你要在本地只开放账号密码登录：
+
+```bash
+APP_AUTH_LOCAL_ENABLED=true
+APP_AUTH_GITHUB_ENABLED=false
+```
+
+本地账号密码登录已经提供这两个接口：
+
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+
+如果当前环境开启了本地账号密码登录，启动后会自动创建一个演示账号：
+
+- 用户名：`demo`
+- 密码：`123456`
+
+注册请求示例：
+
+```json
+{
+  "username": "qiu",
+  "password": "12345678",
+  "displayName": "Qiu",
+  "email": "qiu@example.com"
+}
+```
+
+登录请求示例：
+
+```json
+{
+  "username": "qiu",
+  "password": "12345678"
+}
+```
 
 ### 2. 启动前端
 
@@ -95,6 +164,10 @@ npm run dev
 - `GET /api/shops/{id}/reviews`
 - `GET /api/shops/{id}/recommendations`
 - `POST /api/shops/{id}/reviews`
+- `GET /api/auth/providers`
+- `POST /api/auth/login`
+- `POST /api/auth/register`
+- `GET /api/auth/me`
 
 其中 `POST /api/shops/{id}/reviews` 需要先登录。
 

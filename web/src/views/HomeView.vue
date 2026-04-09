@@ -5,7 +5,7 @@
       <h1>做一个前后端分离版的大众点评首页</h1>
       <p>
         前端使用 Vue 3 + Vite，后端使用 Spring Boot API。
-        你可以搜索商户、浏览详情；发点评前，需要先通过 OAuth2 登录。
+        你可以搜索商户、浏览详情；发点评前，需要先完成登录。
       </p>
 
       <div class="auth-banner" v-if="authState.user">
